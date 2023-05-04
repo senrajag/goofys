@@ -52,9 +52,10 @@ type FlagStorage struct {
 	HTTPTimeout  time.Duration
 
 	// Debugging
-	DebugFuse  bool
-	DebugS3    bool
-	Foreground bool
+	DebugFuse     bool
+	DebugS3       bool
+	Foreground    bool
+	EnableMetrics bool
 }
 
 func (flags *FlagStorage) GetMimeType(fileName string) (retMime *string) {
@@ -101,6 +102,12 @@ var defaultHTTPTransport = http.Transport{
 	ExpectContinueTimeout: 10 * time.Second,
 }
 
-func GetHTTPTransport() *http.Transport {
+func GetHTTPTransport(metrics bool) http.RoundTripper {
+	if metrics {
+		roundTripper, err := GetMetricsHTTPTransport(&defaultHTTPTransport)
+		if err == nil {
+			return roundTripper
+		}
+	}
 	return &defaultHTTPTransport
 }

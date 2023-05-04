@@ -91,6 +91,8 @@ type Goofys struct {
 	replicators *Ticket
 	restorers   *Ticket
 
+	metrics *MetricsClient
+
 	forgotCnt uint32
 }
 
@@ -237,6 +239,11 @@ func newGoofys(ctx context.Context, bucket string, flags *FlagStorage,
 
 	fs.replicators = Ticket{Total: 16}.Init()
 	fs.restorers = Ticket{Total: 20}.Init()
+
+	if flags.EnableMetrics {
+		InitMetricsHandler()
+		fs.metrics = NewMetricsClient()
+	}
 
 	return fs
 }
@@ -751,12 +758,17 @@ func (fs *Goofys) ForgetInode(
 	op *fuseops.ForgetInodeOp) (err error) {
 
 	fs.mu.RLock()
-	inode := fs.getInodeOrDie(op.Inode)
+	inode := fs.inodes[op.Inode]
 	fs.mu.RUnlock()
+	if inode == nil {
+		log.Warnln("Unknown inode", op.Inode)
+		return
+	}
 
-	if inode.Parent != nil {
-		inode.Parent.mu.Lock()
-		defer inode.Parent.mu.Unlock()
+	parent := inode.Parent
+	if parent != nil {
+		parent.mu.Lock()
+		defer parent.mu.Unlock()
 	}
 	stale := inode.DeRef(op.N)
 
@@ -810,6 +822,14 @@ func makeDirEntry(en *DirHandleEntry) fuseutil.Dirent {
 func (fs *Goofys) ReadDir(
 	ctx context.Context,
 	op *fuseops.ReadDirOp) (err error) {
+
+	if fs.flags.EnableMetrics {
+		defer func(start time.Time) {
+			if err == nil && op.BytesRead > 0 {
+				fs.metrics.RecordFuseOps(uint64(op.BytesRead), time.Since(start).Microseconds(), "ReadDir")
+			}
+		}(time.Now())
+	}
 
 	// Find the handle.
 	fs.mu.RLock()
@@ -918,6 +938,14 @@ func (fs *Goofys) ReadFile(
 	ctx context.Context,
 	op *fuseops.ReadFileOp) (err error) {
 
+	if fs.flags.EnableMetrics {
+		defer func(start time.Time) {
+			if err == nil && op.BytesRead > 0 {
+				fs.metrics.RecordFuseOps(uint64(op.BytesRead), time.Since(start).Microseconds(), "ReadFile")
+			}
+		}(time.Now())
+	}
+
 	fs.mu.RLock()
 	fh := fs.fileHandles[op.Handle]
 	fs.mu.RUnlock()
@@ -943,6 +971,14 @@ func (fs *Goofys) FlushFile(
 	fs.mu.RLock()
 	fh := fs.fileHandles[op.Handle]
 	fs.mu.RUnlock()
+
+	if fs.flags.EnableMetrics {
+		defer func(start time.Time) {
+			if err == nil && fh.dirty == true {
+				fs.metrics.RecordFuseOps(fh.inode.Attributes.Size, int64(time.Since(start).Microseconds()), "FlushFile")
+			}
+		}(time.Now())
+	}
 
 	// If the file handle has a tgid, then flush the file only if the
 	// incoming request's tgid matches the tgid in the file handle.
@@ -1099,6 +1135,14 @@ func (fs *Goofys) SetInodeAttributes(
 func (fs *Goofys) WriteFile(
 	ctx context.Context,
 	op *fuseops.WriteFileOp) (err error) {
+
+	if fs.flags.EnableMetrics {
+		defer func(start time.Time) {
+			if err == nil && len(op.Data) > 0 {
+				fs.metrics.RecordFuseOps(uint64(len(op.Data)), time.Since(start).Microseconds(), "WriteFile")
+			}
+		}(time.Now())
+	}
 
 	fs.mu.RLock()
 

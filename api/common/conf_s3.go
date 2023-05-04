@@ -74,7 +74,7 @@ func (c *S3Config) ToAwsConfig(flags *FlagStorage) (*aws.Config, error) {
 		Region: &c.Region,
 		Logger: GetLogger("s3"),
 	}).WithHTTPClient(&http.Client{
-		Transport: &defaultHTTPTransport,
+		Transport: GetHTTPTransport(flags.EnableMetrics),
 		Timeout:   flags.HTTPTimeout,
 	})
 	if flags.DebugS3 {

@@ -249,6 +249,11 @@ func NewApp() (app *cli.App) {
 			/////////////////////////
 
 			cli.BoolFlag{
+				Name:  "enable_metrics",
+				Usage: "Enable fuse-related metrics (Port 2112).",
+			},
+
+			cli.BoolFlag{
 				Name:  "debug_fuse",
 				Usage: "Enable fuse-related debugging output.",
 			},
@@ -339,9 +344,10 @@ func PopulateFlags(c *cli.Context) (ret *FlagStorage) {
 		UseContentType: c.Bool("use-content-type"),
 
 		// Debugging,
-		DebugFuse:  c.Bool("debug_fuse"),
-		DebugS3:    c.Bool("debug_s3"),
-		Foreground: c.Bool("f"),
+		EnableMetrics: c.Bool("enable_metrics"),
+		DebugFuse:     c.Bool("debug_fuse"),
+		DebugS3:       c.Bool("debug_s3"),
+		Foreground:    c.Bool("f"),
 	}
 
 	// S3

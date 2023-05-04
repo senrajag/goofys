@@ -60,7 +60,7 @@ var pipelineHTTPClient = newDefaultHTTPClient()
 // Clone of https://github.com/Azure/azure-pipeline-go/blob/master/pipeline/core.go#L202
 func newDefaultHTTPClient() *http.Client {
 	return &http.Client{
-		Transport: GetHTTPTransport(),
+		Transport: GetHTTPTransport(false),
 	}
 }
 

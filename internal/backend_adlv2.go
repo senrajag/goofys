@@ -167,7 +167,7 @@ func NewADLv2(bucket string, flags *FlagStorage, config *ADLv2Config) (*ADLv2, e
 	client.Authorizer = config.Authorizer
 	client.RequestInspector = LogRequest
 	client.ResponseInspector = LogResponse
-	client.Sender.(*http.Client).Transport = GetHTTPTransport()
+	client.Sender.(*http.Client).Transport = GetHTTPTransport(flags.EnableMetrics)
 
 	b := &ADLv2{
 		flags:  flags,
