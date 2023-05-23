@@ -36,7 +36,7 @@ func GetMetricsHTTPTransport(transport http.RoundTripper) (http.RoundTripper, er
 				Subsystem: subsystemHTTPOutgoing,
 				Name:      "request_duration_histogram_seconds",
 				Help:      "A histogram of outgoing request latencies.",
-				Buckets:   prometheus.DefBuckets,
+				Buckets:   []float64{.01, .025, .05, 0.075, .1, .15, .2, .25, .3, .4, .5, 1},
 			},
 			[]string{"method"},
 		),
@@ -46,7 +46,7 @@ func GetMetricsHTTPTransport(transport http.RoundTripper) (http.RoundTripper, er
 				Subsystem: subsystemHTTPOutgoing,
 				Name:      "firstbyte_duration_histogram_seconds",
 				Help:      "Time taken to get first byte latency histogram.",
-				Buckets:   prometheus.DefBuckets,
+				Buckets:   []float64{.01, .025, .05, 0.075, .1, .15, .2, .25, .3, .4, .5, 1},
 			},
 			[]string{"event"},
 		),
@@ -172,14 +172,14 @@ func (i *outgoingInstrumentation) Collect(in chan<- prometheus.Metric) {
 }
 
 type MetricsClient struct {
-	byteCounter *prometheus.CounterVec
-	timeCounter *prometheus.CounterVec
+	byteCounter *prometheus.SummaryVec
+	timeCounter *prometheus.SummaryVec
 }
 
 func NewMetricsClient() *MetricsClient {
 	return &MetricsClient{
-		byteCounter: promauto.NewCounterVec(
-			prometheus.CounterOpts{
+		byteCounter: promauto.NewSummaryVec(
+			prometheus.SummaryOpts{
 				Namespace: namespace,
 				Subsystem: subsystemFuseOps,
 				Name:      "bytes_total",
@@ -187,8 +187,8 @@ func NewMetricsClient() *MetricsClient {
 			},
 			[]string{"operation"},
 		),
-		timeCounter: promauto.NewCounterVec(
-			prometheus.CounterOpts{
+		timeCounter: promauto.NewSummaryVec(
+			prometheus.SummaryOpts{
 				Namespace: namespace,
 				Subsystem: subsystemFuseOps,
 				Name:      "time_taken",
@@ -200,6 +200,6 @@ func NewMetricsClient() *MetricsClient {
 }
 
 func (m *MetricsClient) RecordFuseOps(c uint64, t int64, op string) {
-	m.byteCounter.WithLabelValues(op).Add(float64(c))
-	m.timeCounter.WithLabelValues(op).Add(float64(t))
+	m.byteCounter.WithLabelValues(op).Observe(float64(c))
+	m.timeCounter.WithLabelValues(op).Observe(float64(t))
 }
